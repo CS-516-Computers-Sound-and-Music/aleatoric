@@ -3,7 +3,17 @@ import sounddevice
 import numpy as np
 import matplotlib.pyplot as plt
 
-song_structures = [
+
+def note_to_freq(semitones_away, base_note = 440):
+    """ Get the frequency of a note given the number of 
+    semitones it is away from the base tone (default: A4-440Hz)
+    """
+    return base_note* 2**(semitones_away/12)
+
+
+### LINE STRUCTURES ###
+
+line_structures = [
         "I-IV-ii-V",
         "I-vi-ii-V",
         "I-iii-IV-iv",
@@ -16,32 +26,53 @@ song_structures = [
         "vi-IV-I-V"
     ]
 
-def note_to_freq(semitones_away, base_note = 440):
-    """ Get the frequency of a note given the number of 
-    semitones it is away from the base tone (default: A4-440Hz)
-    """
-    return base_note* 2**(semitones_away/12)
-
 roman_map = {"i":1, "ii":2, "iii":3, 
              "iv":4, "v":5, "vi": 6}
-def get_song_structure(key):
-    """ Given a key, return the four chords in the song structure in Hz
+def get_line_structure(key, force_struct = None):
+    """ Given a key, return the four chords in the line structure in Hz
         minor chords are lowercase
         major chords are upper
     """
     minor_chord = np.array([0,3,7])
     major_chord = np.array([0,4,7])
     
-    chord_progression = np.random.choice(song_structures).split("-")
-    chords = [minor_chord + key[roman_map[c.lower()]] if c.islower() 
-              else major_chord + key[roman_map[c.lower()]]
+    chord_progression_str = np.random.choice(line_structures) if force_struct is None else force_struct
+    chord_progression = chord_progression_str.split("-")
+
+    chords = [minor_chord + (key[roman_map[c.lower()]-1]) if c.islower() 
+              else major_chord + (key[roman_map[c.lower()]-1])
               for c in chord_progression]
     
-    return chords
+    return chords, chord_progression_str
 
 
+### SONG STRUCTURES ###
 
-def get_key():
+song_structures = ["AABB/CC", "ABAB/CD", "AB/CDDD"]
+
+def get_song_structure(key):
+    song_structure = np.random.choice(song_structures)
+
+    verse,refrain = song_structure.split('/')
+    verse = verse.split('')
+    refrain=refrain.split('')
+
+    A,B,C,D = np.random.choice(line_structures,size=4,replace=False)
+    line_dict = {"A":A,"B":B,"C":C,"D":D}
+    
+    verse_w_lines = [line_dict[line] for line in verse]
+    refrain_w_lines = [line_dict[line] for line in refrain]
+
+    return verse_w_lines, refrain_w_lines
+
+
+### KEY ###
+
+key_choices = ["A3","A3#","B3","C3","C3#","D3","D3#","E3","F3","F3#",'G3',"G3#",
+               "A4","A4#","B4","C4","C4#","D4","D4#","E4","F4","F4#",'G4',"G4#",
+               "A5","A5#","B5","C5","C5#","D5","D5#","E5","F5","F5#",'G5',"G5#"]
+
+def get_key(force_key=None):
     """ return a random major key from A3-A4 inclusive 
         from A,A#,B,C,C#,D,D#,E,F,F#,G,G#,A
         since A4 is the overall reference, this will return
@@ -51,7 +82,7 @@ def get_key():
     maj_key = np.array([0,2,2,1,2,2,2])
 
     # get a random home note, [-12,1) inclusive low end, exclusive high end
-    key_note = np.random.randint(low=-12, high=1)
+    key_note = np.random.randint(low=-12, high=1) if force_key is None else force_key
     scale = [key_note + np.sum(maj_key[:i+1]) for i in range(maj_key.shape[0])]
     return np.array(scale)
 
@@ -119,5 +150,8 @@ def main():
 if __name__=="__main__":
     """"""
     key = get_key()
-    print(key)
-    print(get_song_structure(key))
+    print(f'In the key of {key_choices[key[0]+12]} (semitone: {key[0]})')
+    line_structure, line_struct_str = get_line_structure(key, force_struct="vi-IV-I-V")
+    print(f'Chosen line structure: {line_struct_str}' )
+    for chord in line_structure:
+        print(f'\t{key_choices[chord[0]+12], key_choices[chord[1]+12], key_choices[chord[2]+12]}')
