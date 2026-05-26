@@ -3,6 +3,7 @@ from scipy import signal
 import sounddevice
 import numpy as np
 import matplotlib.pyplot as plt
+import argparse
 
 ### PARAMS ###
 tempo = np.random.randint(low=80, high=160+1)
@@ -109,16 +110,17 @@ def get_key(force_key=None):
     scale = [key_note + np.sum(maj_key[:i+1]) for i in range(maj_key.shape[0])]
     return np.array(scale)
 
-def give_em_the_edgar(wave):
-    multipliers = np.linspace(0,1,10000)
-    for i in range(10000):
-        wave[-i] = wave[-i]*multipliers[-i]
+def give_em_the_edgar(wave, fade_length=100):
+    fade_in = np.linspace(0.0,1.0,fade_length)
+    fade = np.linspace(1.0,0.0,fade_length)
+    bowl = np.ones(wave.shape[0] - 2*fade_length)
 
-    return wave
+    mask = np.concatenate((fade_in,bowl,fade))
+
+    return wave * mask
 
 
-if __name__=="__main__":
-    """"""
+def main():
     key = get_key()
     print(f'In the key of {key_choices[key[0]+12]} (semitone: {key[0]})')
 
@@ -140,3 +142,18 @@ if __name__=="__main__":
     song=np.concatenate(waves).reshape(-1)
     sounddevice.play(volume(song), samplerate=sample_rate)
     sounddevice.wait()
+
+
+if __name__=="__main__":
+    """"""
+    parser = argparse.ArgumentParser(
+                    prog='Aleotoric Music',
+                    description='Generates a short aleatorically generated song',
+                    epilog='Code by Shane :)')
+    
+    parser.add_argument('--bass', action='store_true', help="For each measure, play the chord root as a whole note two octaves lower. For example, if the chord is C the root is C4, so the bass would be C2")
+    parser.add_argument('--harmony', action='store_true', help="For each melody note, also play the closest chord note below. For example, if the chord is C and the melody note is E4, also play C4.")
+    parser.add_argument('--rhythm', action='store_true', help="Instead of eighth notes, pick a random note pattern for the verse, and another for the chorus. Use the same pattern for each line of the verse, and for each line of the chorus.")
+    parser.add_argument('--drums', action='store_true', help="Add a drum track using white noise. Pick a one-measure rhythm, then use that for every measure in the song.")
+    parser.add_argument('-f','--filename', help="Instead of playing the song out loud, write the performance to FILENAME.wav as a WAV file: mono 48000sps 16-bit.")
+    
