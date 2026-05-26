@@ -19,7 +19,7 @@ def note_to_freq(semitones_away, base_note = 440):
     """
     return base_note* 2**(semitones_away/12)
 
-def generate_sawtooth(note_semitones, root_chord = None, duration=note_duration):
+def generate_sawtooth(note_semitones, bass_root = None, duration=note_duration):
     wave_width = 0.5
     frequency = note_to_freq(note_semitones)
 
@@ -27,12 +27,11 @@ def generate_sawtooth(note_semitones, root_chord = None, duration=note_duration)
     
     sample = signal.sawtooth(2*np.pi*frequency*t, width=wave_width) #type:ignore
 
-    if root_chord is not None:
-        lo =  signal.sawtooth(2*np.pi*note_to_freq(root_chord[0])*t, width=wave_width) #type:ignore
-        mid = signal.sawtooth(2*np.pi*note_to_freq(root_chord[1])*t, width=wave_width) #type:ignore
-        hi =  signal.sawtooth(2*np.pi*note_to_freq(root_chord[2])*t, width=wave_width) #type:ignore
+    if bass_root is not None:
+        # Takes the bass note, drops it two octaves (-24 semitones)
+        bass =  signal.sawtooth(2*np.pi*note_to_freq(bass_root-24)*t, width=wave_width) #type:ignore
 
-        sample = 0.6*sample + 0.2*lo + 0.1*mid + 0.1 * hi
+        sample = 0.3*sample + 0.7*bass
 
     return sample
 
@@ -120,7 +119,7 @@ def give_em_the_edgar(wave, fade_length=100):
     return wave * mask
 
 
-def main():
+def main(save_file=None, add_bass=False, play_chord=False):
     key = get_key()
     print(f'In the key of {key_choices[key[0]+12]} (semitone: {key[0]})')
 
@@ -133,15 +132,20 @@ def main():
     
     waves = []
     for line in all_semitones:
-        root_chord = line[0]
+        bass_root = None if not add_bass else line[0][0]
         for chord in line:
-            wave = generate_sawtooth(np.random.choice(chord), root_chord=root_chord)
+            wave = generate_sawtooth(np.random.choice(chord), bass_root=bass_root)
             wave=give_em_the_edgar(wave)
             waves.append(wave)
 
     song=np.concatenate(waves).reshape(-1)
-    sounddevice.play(volume(song), samplerate=sample_rate)
-    sounddevice.wait()
+    if save_file is None: 
+        # Play the song out loud and do not save
+        sounddevice.play(volume(song), samplerate=sample_rate)
+        sounddevice.wait()
+    else:
+        # Save a .wav file under FILENAME.wav
+        wf.write(save_file, sample_rate, song)
 
 
 if __name__=="__main__":
@@ -156,4 +160,7 @@ if __name__=="__main__":
     parser.add_argument('--rhythm', action='store_true', help="Instead of eighth notes, pick a random note pattern for the verse, and another for the chorus. Use the same pattern for each line of the verse, and for each line of the chorus.")
     parser.add_argument('--drums', action='store_true', help="Add a drum track using white noise. Pick a one-measure rhythm, then use that for every measure in the song.")
     parser.add_argument('-f','--filename', help="Instead of playing the song out loud, write the performance to FILENAME.wav as a WAV file: mono 48000sps 16-bit.")
+    args = parser.parse_args()
+    
+    main(save_file = args.filename, add_bass = args.bass)
     
