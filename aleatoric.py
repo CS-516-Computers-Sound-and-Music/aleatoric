@@ -10,8 +10,7 @@ tempo = np.random.randint(low=80, high=160+1)
 note_duration = 60/tempo
 sample_rate = 48000
 
-volume = lambda x:x/2
-
+### MAKING A WAVE ###
 
 def note_to_freq(semitones_away, base_note = 440):
     """ Get the frequency of a note given the number of 
@@ -63,7 +62,7 @@ line_structures = [
         "I-IV-iv-I",
         "IV-V-I-I",
         "vi-IV-I-V"
-    ]
+        ]
 
 roman_map = {"i":1, "ii":2, "iii":3, 
              "iv":4, "v":5, "vi": 6}
@@ -123,6 +122,10 @@ def get_key(force_key=None):
     scale = [key_note + np.sum(maj_key[:i+1]) for i in range(maj_key.shape[0])]
     return np.array(scale)
 
+### PLAYING THE SONG ###
+
+volume = lambda x:x/2
+
 def give_em_the_edgar(wave, fade_length=100):
     fade_in = np.linspace(0.0,1.0,fade_length)
     fade = np.linspace(1.0,0.0,fade_length)
@@ -132,6 +135,7 @@ def give_em_the_edgar(wave, fade_length=100):
 
     return wave * mask
 
+### MAIN ###
 
 def main(save_file=None, add_bass=False, play_chord=False, add_harmony=False):
     key = get_key()
@@ -173,7 +177,7 @@ if __name__=="__main__":
     parser.add_argument('--harmony', action='store_true', help="For each melody note, also play the closest chord note below. For example, if the chord is C and the melody note is E4, also play C4.")
     parser.add_argument('--rhythm', action='store_true', help="Instead of eighth notes, pick a random note pattern for the verse, and another for the chorus. Use the same pattern for each line of the verse, and for each line of the chorus.")
     parser.add_argument('--drums', action='store_true', help="Add a drum track using white noise. Pick a one-measure rhythm, then use that for every measure in the song.")
-    parser.add_argument('-f','--filename', help="Instead of playing the song out loud, write the performance to FILENAME.wav as a WAV file: mono 48000sps 16-bit.")
+    parser.add_argument('-o','--output', help="Instead of playing the song out loud, write the performance to FILENAME.wav as a WAV file: mono 48000sps 16-bit.")
     args = parser.parse_args()
     
     main(save_file = args.filename, add_bass = args.bass, add_harmony=args.harmony)
