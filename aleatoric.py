@@ -52,6 +52,16 @@ def generate_sawtooth(key,
     return sample
 
 
+### RHYTHM ###
+
+# notes are tied to quarter notes, so rhythms will be scaled in terms of that
+rhythms = [[1/4, 1/4, 1/4, 1/4], # normal, all quarter notes
+           [1/2, 1/4, 1/8, 1/8],
+           [1/2, 1/8, 1/8, 1/4],
+           [3/4, 1/12, 1/12, 1/12],
+]
+
+
 ### LINE STRUCTURES ###
 
 line_structures = [
