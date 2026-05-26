@@ -19,19 +19,33 @@ def note_to_freq(semitones_away, base_note = 440):
     """
     return base_note* 2**(semitones_away/12)
 
-def generate_sawtooth(note_semitones, bass_root = None, duration=note_duration):
+def generate_sawtooth(chord_semitones, 
+                      bass_root = None, 
+                      duration=note_duration, 
+                      add_harmony=False):
     wave_width = 0.5
-    frequency = note_to_freq(note_semitones)
+    note_semitone = np.random.choice(chord_semitones)
+    frequency = note_to_freq(note_semitone)
 
     t = np.linspace(0,duration,int(duration*sample_rate)) #type:ignore
     
     sample = signal.sawtooth(2*np.pi*frequency*t, width=wave_width) #type:ignore
 
+    if add_harmony:
+        melody_chord_index = np.where(chord_semitones == note_semitone)[0][0]
+        if melody_chord_index == 0:
+            harmony_semitone = chord_semitones[-1]-12
+        else:
+            harmony_semitone = chord_semitones[melody_chord_index-1]
+        harmony =  signal.sawtooth(2*np.pi*note_to_freq(harmony_semitone)*t, width=wave_width) #type:ignore
+        sample = 0.5*sample + 0.5*harmony
+
+
     if bass_root is not None:
         # Takes the bass note, drops it two octaves (-24 semitones)
         bass =  signal.sawtooth(2*np.pi*note_to_freq(bass_root-24)*t, width=wave_width) #type:ignore
 
-        sample = 0.3*sample + 0.7*bass
+        sample = 0.4*sample + 0.6*bass
 
     return sample
 
@@ -119,7 +133,7 @@ def give_em_the_edgar(wave, fade_length=100):
     return wave * mask
 
 
-def main(save_file=None, add_bass=False, play_chord=False):
+def main(save_file=None, add_bass=False, play_chord=False, add_harmony=False):
     key = get_key()
     print(f'In the key of {key_choices[key[0]+12]} (semitone: {key[0]})')
 
@@ -134,7 +148,7 @@ def main(save_file=None, add_bass=False, play_chord=False):
     for line in all_semitones:
         bass_root = None if not add_bass else line[0][0]
         for chord in line:
-            wave = generate_sawtooth(np.random.choice(chord), bass_root=bass_root)
+            wave = generate_sawtooth(chord, bass_root=bass_root, add_harmony=True)
             wave=give_em_the_edgar(wave)
             waves.append(wave)
 
@@ -162,5 +176,5 @@ if __name__=="__main__":
     parser.add_argument('-f','--filename', help="Instead of playing the song out loud, write the performance to FILENAME.wav as a WAV file: mono 48000sps 16-bit.")
     args = parser.parse_args()
     
-    main(save_file = args.filename, add_bass = args.bass)
+    main(save_file = args.filename, add_bass = args.bass, add_harmony=args.harmony)
     
