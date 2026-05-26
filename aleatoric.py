@@ -5,11 +5,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 ### PARAMS ###
-sample_rate = 48000
 tempo = np.random.randint(low=80, high=160+1)
 note_duration = 60/tempo
+sample_rate = 48000
 
-volume = lambda x:x/10000
+volume = lambda x:x/2
 
 
 def note_to_freq(semitones_away, base_note = 440):
@@ -18,10 +18,20 @@ def note_to_freq(semitones_away, base_note = 440):
     """
     return base_note* 2**(semitones_away/12)
 
-def generate_sawtooth(duration, note_semitones):
+def generate_sawtooth(note_semitones, root_chord = None, duration=note_duration):
+    wave_width = 0.5
     frequency = note_to_freq(note_semitones)
-    t = np.linspace(0,duration,duration * sample_rate)
-    sample = signal.sawtooth(2*np.pi*frequency*t)
+
+    t = np.linspace(0,duration,int(duration*sample_rate)) #type:ignore
+    
+    sample = signal.sawtooth(2*np.pi*frequency*t, width=wave_width) #type:ignore
+
+    if root_chord is not None:
+        lo =  signal.sawtooth(2*np.pi*note_to_freq(root_chord[0])*t, width=wave_width) #type:ignore
+        mid = signal.sawtooth(2*np.pi*note_to_freq(root_chord[1])*t, width=wave_width) #type:ignore
+        hi =  signal.sawtooth(2*np.pi*note_to_freq(root_chord[2])*t, width=wave_width) #type:ignore
+
+        sample = 0.6*sample + 0.2*lo + 0.1*mid + 0.1 * hi
 
     return sample
 
@@ -69,8 +79,6 @@ def get_song_structure(key):
     song_structure = np.random.choice(song_structures)
 
     verse,refrain = song_structure.split('/')
-    verse = verse.split('')
-    refrain=refrain.split('')
 
     A,B,C,D = np.random.choice(line_structures,size=4,replace=False)
     line_dict = {"A":A,"B":B,"C":C,"D":D}
@@ -101,75 +109,34 @@ def get_key(force_key=None):
     scale = [key_note + np.sum(maj_key[:i+1]) for i in range(maj_key.shape[0])]
     return np.array(scale)
 
+def give_em_the_edgar(wave):
+    multipliers = np.linspace(0,1,10000)
+    for i in range(10000):
+        wave[-i] = wave[-i]*multipliers[-i]
 
-def main():
-    """Sine Wave
-        Channels per frame: 1 (mono)
-        Sample format: 16 bit signed (values in the range -32767..32767)
-        Amplitude: ¼ maximum possible 16-bit amplitude (values in the range -8192..8192)
-        Duration: one second
-        Frequency: 440Hz (440 cycles per second)
-        Sample Rate: 48000 samples per second
-    """
-    amplitude = 8192
-    frequency = 440
-    sample_rate = 48000
+    return wave
 
-    sin_x = np.linspace(0,1,sample_rate)
-    sin_y = amplitude * np.sin(2*np.pi*frequency*sin_x)
-
-    # save to sine.wav
-    
-    wf.write("sine.wav", sample_rate, sin_y)
-
-    # note: worst sound I've ever heard, so loud
-    """
-    Fixing loudness on replay: dividing the entire thing by a constant (large to make it a lot less loud)
-    The raw sound was blowing out my speakers, so it didn't even sound like middle A (much higher than)
-    The volumne control of 100 000 sounds like A and doesn't hurt
-
-    So, what I've found is that, even through quicktime, the amplitude bypasses my computer's volume 
-    controls.
-    """
-    vol_control = 10000 # much better
-    sounddevice.play(sin_y/vol_control, samplerate=sample_rate)
-    sounddevice.wait()
-    
-    """Clipped Sine Wave
-    half amplitude wave clipped at +/- 8192
-    """
-    max_amp = 8192
-
-    clipped_y = sin_y*2
-    clipped_y[clipped_y>max_amp] = max_amp
-    clipped_y[clipped_y<-max_amp] = -max_amp
-
-    # write to clipped.wav
-    wf.write("clipped.wav", sample_rate, clipped_y)
-
-    # play it back
-    sounddevice.play(clipped_y/vol_control, samplerate=sample_rate)
-    sounddevice.wait()
-
-
-    # Show the two waves
-    stop = 200
-    plt.plot(sin_x[:stop], sin_y[:stop], label='Sine Wave')
-    plt.plot(sin_x[:stop], sin_y[:stop]*2, c='orange',linestyle='dashed')
-    plt.plot(sin_x[:stop], clipped_y[:stop], c='orange', label='Clipped Sine Wave')
-
-    plt.title(f"{frequency}Hz Sine Waves")
-    plt.legend()
-    plt.show()
 
 if __name__=="__main__":
     """"""
     key = get_key()
     print(f'In the key of {key_choices[key[0]+12]} (semitone: {key[0]})')
 
-    line_structure, line_struct_str = get_line_structure(key)
-    print(f'Chosen line structure: {line_struct_str}' )
-    for chord in line_structure:
-        print(f'\t{key_choices[chord[0]+12], key_choices[chord[1]+12], key_choices[chord[2]+12]}')
+    verse, refrain = get_song_structure(key)
 
+    verse_semitones = [get_line_structure(key, force_struct=line)[0] for line in verse]
+    refrain_semitones = [get_line_structure(key, force_struct=line)[0] for line in refrain]
+
+    all_semitones = np.concatenate((verse_semitones,refrain_semitones), axis=0)
     
+    waves = []
+    for line in all_semitones:
+        root_chord = line[0]
+        for chord in line:
+            wave = generate_sawtooth(np.random.choice(chord), root_chord=root_chord)
+            wave=give_em_the_edgar(wave)
+            waves.append(wave)
+
+    song=np.concatenate(waves).reshape(-1)
+    sounddevice.play(volume(song), samplerate=sample_rate)
+    sounddevice.wait()
