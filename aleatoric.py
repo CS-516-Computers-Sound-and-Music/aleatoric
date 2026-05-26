@@ -1,7 +1,15 @@
 from scipy.io import wavfile as wf
+from scipy import signal
 import sounddevice
 import numpy as np
 import matplotlib.pyplot as plt
+
+### PARAMS ###
+sample_rate = 48000
+tempo = np.random.randint(low=80, high=160+1)
+note_duration = 60/tempo
+
+volume = lambda x:x/10000
 
 
 def note_to_freq(semitones_away, base_note = 440):
@@ -9,6 +17,13 @@ def note_to_freq(semitones_away, base_note = 440):
     semitones it is away from the base tone (default: A4-440Hz)
     """
     return base_note* 2**(semitones_away/12)
+
+def generate_sawtooth(duration, note_semitones):
+    frequency = note_to_freq(note_semitones)
+    t = np.linspace(0,duration,duration * sample_rate)
+    sample = signal.sawtooth(2*np.pi*frequency*t)
+
+    return sample
 
 
 ### LINE STRUCTURES ###
@@ -151,7 +166,10 @@ if __name__=="__main__":
     """"""
     key = get_key()
     print(f'In the key of {key_choices[key[0]+12]} (semitone: {key[0]})')
-    line_structure, line_struct_str = get_line_structure(key, force_struct="vi-IV-I-V")
+
+    line_structure, line_struct_str = get_line_structure(key)
     print(f'Chosen line structure: {line_struct_str}' )
     for chord in line_structure:
         print(f'\t{key_choices[chord[0]+12], key_choices[chord[1]+12], key_choices[chord[2]+12]}')
+
+    
