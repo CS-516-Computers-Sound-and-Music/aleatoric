@@ -45,7 +45,7 @@ def generate_sawtooth(key,
 
     if bass_root is not None:
         # Takes the bass note, drops it two octaves (-24 semitones)
-        bass =  signal.sawtooth(2*np.pi*note_to_freq(bass_root-24)*t, width=wave_width) #type:ignore
+        bass =  signal.sawtooth(2*np.pi*note_to_freq(bass_root-24)*t, width=0.5) #type:ignore
 
         sample = 0.4*sample + 0.6*bass
 
