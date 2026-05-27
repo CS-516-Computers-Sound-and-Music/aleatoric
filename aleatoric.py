@@ -23,7 +23,7 @@ def generate_sawtooth(key,
                       bass_root = None, 
                       duration=note_duration, 
                       add_harmony=False):
-    wave_width = 0.5
+    wave_width = 0.9
 
     note_semitone = np.random.choice(chord_semitones)
 
@@ -54,13 +54,18 @@ def generate_sawtooth(key,
 
 ### RHYTHM ###
 
-# notes are tied to quarter notes, so rhythms will be scaled in terms of that
-rhythms = [[1/4, 1/4, 1/4, 1/4], # normal, all quarter notes
-           [1/2, 1/4, 1/8, 1/8],
-           [1/2, 1/8, 1/8, 1/4],
-           [3/4, 1/12, 1/12, 1/12],
-]
-
+def get_rhythm():
+    # notes are tied to quarter notes, so rhythms will be scaled in terms of that
+    rhythms = np.array([[1/4, 1/4, 1/4, 1/4], # normal, all quarter notes
+            [1/2, 1/4, 1/8, 1/8],
+            [3/4, 1/12, 1/12, 1/12],
+            [1/3,1/3,1/6,1/6]
+    ])
+    rhythms = rhythms*4 # so that each fraction represents the fraction of a quarter note to use
+    i,j = np.random.choice(range(len(rhythms)),2) # allowing them to be the same
+    verse = np.random.permutation(rhythms[i])
+    refrain = np.random.permutation(rhythms[j])
+    return verse,refrain
 
 ### LINE STRUCTURES ###
 
@@ -112,7 +117,7 @@ def get_song_structure(key):
     verse_w_lines = [line_dict[line] for line in verse]
     refrain_w_lines = [line_dict[line] for line in refrain]
 
-    return verse_w_lines, refrain_w_lines
+    return verse_w_lines, refrain_w_lines, song_structure
 
 
 ### KEY ###
@@ -150,26 +155,79 @@ def give_em_the_edgar(wave, fade_length=100):
 
 ### MAIN ###
 
-def main(save_file=None, add_bass=False, play_chord=False, add_harmony=False):
+def semitones_to_string(semitones):
+    note_string = []
+    for line in semitones:
+        for s in line:
+            diff = s[1]-s[0]
+            note_string.append(f'{key_choices[s[0]+12]}{'Maj'if diff==4 else 'Min'}')
+    return ", ".join(note_string)
+
+def rhythm_to_string(rhythm):
+    rhythm_string = []
+    for note in rhythm:
+        rhythm_string.append(f'{note/4:.2f}') # because everything just scales a quarter note
+    return ", ".join(rhythm_string)
+
+def main(save_file=None, add_bass=False, play_chord=False, add_harmony=False, modify_rhythm=False):
     key = get_key()
     print(f'In the key of {key_choices[key[0]+12]} (semitone: {key[0]})')
 
-    verse, refrain = get_song_structure(key)
+    verse, refrain, structure_string = get_song_structure(key)
+
+    print(f'Song structure: {structure_string}')
+    print(f'\tVerse:')
+    for line in verse:
+        print(f'\t\t{line}')
+    print(f'\tRefrain:')
+    for line in refrain:
+        print(f'\t\t{line}')
 
     verse_semitones = [get_line_structure(key, force_struct=line)[0] for line in verse]
     refrain_semitones = [get_line_structure(key, force_struct=line)[0] for line in refrain]
 
-    all_semitones = np.concatenate((verse_semitones,refrain_semitones), axis=0)
+    print(f'Melody:')
+    print(f'\tVerse: {semitones_to_string(verse_semitones)}')
+    print(f'\tRefrain: {semitones_to_string(refrain_semitones)}')
+
+    print(f'Bass {"\u2713" if add_bass else 'X'}')
+    print(f'Harmony {"\u2713" if add_harmony else 'X'}')
+    print(f'Rhythm {"\u2713" if modify_rhythm else 'X'}')
     
     waves = []
-    for line in all_semitones:
+    if modify_rhythm:
+        verse_durations, ref_durations = get_rhythm()
+    else:
+        verse_durations, ref_durations = [1,1,1,1],[1,1,1,1]
+
+    print(f'\nRhythm:')
+    print(f'\tVerse: {rhythm_to_string(verse_durations)}')
+    print(f'\tRefrain: {rhythm_to_string(ref_durations)}')
+
+    for line in verse_semitones:
         bass_root = None if not add_bass else line[0][0]
-        for chord in line:
-            wave = generate_sawtooth(key, chord, bass_root=bass_root, add_harmony=True)
+        for chord,duration in zip(line,verse_durations):
+            wave = generate_sawtooth(key, 
+                                     chord, 
+                                     bass_root=bass_root, 
+                                     add_harmony=add_harmony,
+                                     duration=duration*note_duration)
+            wave=give_em_the_edgar(wave)
+            waves.append(wave)
+
+    for line in refrain_semitones:
+        bass_root = None if not add_bass else line[0][0]
+        for chord,duration in zip(line,ref_durations):
+            wave = generate_sawtooth(key, 
+                                     chord, 
+                                     bass_root=bass_root, 
+                                     add_harmony=add_harmony,
+                                     duration=duration*note_duration)
             wave=give_em_the_edgar(wave)
             waves.append(wave)
 
     song=np.concatenate(waves).reshape(-1)
+    song=np.concatenate([song,song])
     if save_file is None: 
         # Play the song out loud and do not save
         sounddevice.play(volume(song), samplerate=sample_rate)
@@ -193,5 +251,5 @@ if __name__=="__main__":
     parser.add_argument('-o','--output', help="Instead of playing the song out loud, write the performance to FILENAME.wav as a WAV file: mono 48000sps 16-bit.")
     args = parser.parse_args()
     
-    main(save_file = args.output, add_bass = args.bass, add_harmony=args.harmony)
+    main(save_file = args.output, add_bass = args.bass, add_harmony=args.harmony, modify_rhythm=args.rhythm)
     
